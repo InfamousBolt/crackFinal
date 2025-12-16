@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
@@ -20,7 +21,7 @@ class _StartScreenState extends State<StartScreen> {
   bool _recorderInitialized = false;
   String? _currentRecordingPath;
   StreamSubscription? _audioStreamSubscription;
-  StreamController<List<int>>? _audioStreamController;
+  StreamController<Uint8List>? _audioStreamController;
   IOSink? _fileSink;
 
   @override
@@ -96,13 +97,13 @@ class _StartScreenState extends State<StartScreen> {
       _fileSink = file.openWrite();
 
       // Create stream controller for audio data
-      _audioStreamController = StreamController<List<int>>();
+      _audioStreamController = StreamController<Uint8List>();
 
       // Listen to the stream and handle audio data
       _audioStreamSubscription = _audioStreamController!.stream.listen(
         (buffer) {
-          // Send audio data to transcription provider
-          transcriptionProvider.addAudioData(buffer);
+          // Send audio data to transcription provider (convert Uint8List to List<int>)
+          transcriptionProvider.addAudioData(buffer.toList());
 
           // Also write to file
           _fileSink?.add(buffer);
