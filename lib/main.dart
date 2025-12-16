@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import 'audio_recordings.dart';
 import 'start_screen.dart';
+import 'transcribed_screen.dart';
+import 'transcription_provider.dart';
 
 List<CameraDescription> cameras = [];
 
@@ -31,13 +34,16 @@ class CrackedApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Cracked',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+    return ChangeNotifierProvider(
+      create: (context) => TranscriptionProvider(),
+      child: MaterialApp(
+        title: 'Cracked',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: const HomeScreen(),
       ),
-      home: const HomeScreen(),
     );
   }
 }
@@ -55,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = [
     const StartScreen(),
     const CameraScreen(),
+    const TranscribedScreen(),
     const AudioRecordings(),
   ];
 
@@ -83,6 +90,10 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.camera_alt),
             label: 'Camera',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.text_fields),
+            label: 'Transcription',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.library_music),

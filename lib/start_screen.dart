@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
+import 'transcription_provider.dart';
 
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
@@ -82,7 +84,16 @@ class _StartScreenState extends State<StartScreen> {
         _currentRecordingPath = filePath;
       });
 
-      _showSnackbar('Recording started');
+      // Start transcription
+      if (mounted) {
+        final transcriptionProvider = Provider.of<TranscriptionProvider>(
+          context,
+          listen: false,
+        );
+        await transcriptionProvider.startListening();
+      }
+
+      _showSnackbar('Recording and transcription started');
     } catch (e) {
       _showSnackbar('Failed to start recording: $e');
     }
@@ -96,7 +107,16 @@ class _StartScreenState extends State<StartScreen> {
         _isRecording = false;
       });
 
-      _showSnackbar('Recording saved! Check Audio tab to listen');
+      // Stop transcription
+      if (mounted) {
+        final transcriptionProvider = Provider.of<TranscriptionProvider>(
+          context,
+          listen: false,
+        );
+        await transcriptionProvider.stopListening();
+      }
+
+      _showSnackbar('Recording saved! Check Audio and Transcription tabs');
 
       // Clear the path after a delay
       Future.delayed(const Duration(seconds: 2), () {
