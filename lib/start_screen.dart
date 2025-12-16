@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
@@ -17,6 +18,7 @@ class _StartScreenState extends State<StartScreen> {
   bool _isRecording = false;
   bool _recorderInitialized = false;
   String? _currentRecordingPath;
+  StreamSubscription? _audioStreamSubscription;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _StartScreenState extends State<StartScreen> {
 
   @override
   void dispose() {
+    _audioStreamSubscription?.cancel();
     _audioRecorder?.closeRecorder();
     _audioRecorder = null;
     super.dispose();
@@ -69,29 +72,47 @@ class _StartScreenState extends State<StartScreen> {
         }
       }
 
+      // Get transcription provider
+      final transcriptionProvider = Provider.of<TranscriptionProvider>(
+        context,
+        listen: false,
+      );
+
+      // Start transcription service
+      await transcriptionProvider.startListening();
+
       // Get app documents directory
       final directory = await getApplicationDocumentsDirectory();
       final filePath =
           '${directory.path}/start_recording_${DateTime.now().millisecondsSinceEpoch}.aac';
 
-      await _audioRecorder!.startRecorder(
+      // Start recording to stream AND file
+      // We use toStream to get audio data for transcription
+      final stream = await _audioRecorder!.startRecorder(
         toFile: filePath,
-        codec: Codec.aacADTS,
+        codec: Codec.pcm16, // PCM16 format for Google Cloud API compatibility
+        sampleRate: 16000, // 16kHz sample rate required by Google Cloud
       );
+
+      // Listen to audio stream and send to transcription provider
+      if (stream != null) {
+        _audioStreamSubscription = stream.listen(
+          (buffer) {
+            // Send audio data to transcription provider
+            if (buffer is List<int>) {
+              transcriptionProvider.addAudioData(buffer);
+            }
+          },
+          onError: (error) {
+            _showSnackbar('Audio stream error: $error');
+          },
+        );
+      }
 
       setState(() {
         _isRecording = true;
         _currentRecordingPath = filePath;
       });
-
-      // Start transcription
-      if (mounted) {
-        final transcriptionProvider = Provider.of<TranscriptionProvider>(
-          context,
-          listen: false,
-        );
-        await transcriptionProvider.startListening();
-      }
 
       _showSnackbar('Recording and transcription started');
     } catch (e) {
@@ -101,6 +122,11 @@ class _StartScreenState extends State<StartScreen> {
 
   Future<void> _stopRecording() async {
     try {
+      // Cancel audio stream subscription
+      await _audioStreamSubscription?.cancel();
+      _audioStreamSubscription = null;
+
+      // Stop recorder
       await _audioRecorder!.stopRecorder();
 
       setState(() {
