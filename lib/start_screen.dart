@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
@@ -19,6 +20,8 @@ class _StartScreenState extends State<StartScreen> {
   bool _recorderInitialized = false;
   String? _currentRecordingPath;
   StreamSubscription? _audioStreamSubscription;
+  StreamController<List<int>>? _audioStreamController;
+  IOSink? _fileSink;
 
   @override
   void initState() {
@@ -42,6 +45,8 @@ class _StartScreenState extends State<StartScreen> {
   @override
   void dispose() {
     _audioStreamSubscription?.cancel();
+    _audioStreamController?.close();
+    _fileSink?.close();
     _audioRecorder?.closeRecorder();
     _audioRecorder = null;
     super.dispose();
@@ -86,28 +91,34 @@ class _StartScreenState extends State<StartScreen> {
       final filePath =
           '${directory.path}/start_recording_${DateTime.now().millisecondsSinceEpoch}.aac';
 
-      // Start recording to stream AND file
-      // We use toStream to get audio data for transcription
-      final stream = await _audioRecorder!.startRecorder(
-        toFile: filePath,
-        codec: Codec.pcm16, // PCM16 format for Google Cloud API compatibility
-        sampleRate: 16000, // 16kHz sample rate required by Google Cloud
+      // Create file for saving audio
+      final file = File(filePath);
+      _fileSink = file.openWrite();
+
+      // Create stream controller for audio data
+      _audioStreamController = StreamController<List<int>>();
+
+      // Listen to the stream and handle audio data
+      _audioStreamSubscription = _audioStreamController!.stream.listen(
+        (buffer) {
+          // Send audio data to transcription provider
+          transcriptionProvider.addAudioData(buffer);
+
+          // Also write to file
+          _fileSink?.add(buffer);
+        },
+        onError: (error) {
+          _showSnackbar('Audio stream error: $error');
+        },
       );
 
-      // Listen to audio stream and send to transcription provider
-      if (stream != null) {
-        _audioStreamSubscription = stream.listen(
-          (buffer) {
-            // Send audio data to transcription provider
-            if (buffer is List<int>) {
-              transcriptionProvider.addAudioData(buffer);
-            }
-          },
-          onError: (error) {
-            _showSnackbar('Audio stream error: $error');
-          },
-        );
-      }
+      // Start recording to stream
+      await _audioRecorder!.startRecorder(
+        toStream: _audioStreamController!.sink,
+        codec: Codec.pcm16, // PCM16 format for Google Cloud API compatibility
+        sampleRate: 16000, // 16kHz sample rate required by Google Cloud
+        numChannels: 1, // Mono audio
+      );
 
       setState(() {
         _isRecording = true;
@@ -122,12 +133,21 @@ class _StartScreenState extends State<StartScreen> {
 
   Future<void> _stopRecording() async {
     try {
+      // Stop recorder
+      await _audioRecorder!.stopRecorder();
+
       // Cancel audio stream subscription
       await _audioStreamSubscription?.cancel();
       _audioStreamSubscription = null;
 
-      // Stop recorder
-      await _audioRecorder!.stopRecorder();
+      // Close stream controller
+      await _audioStreamController?.close();
+      _audioStreamController = null;
+
+      // Close file sink
+      await _fileSink?.flush();
+      await _fileSink?.close();
+      _fileSink = null;
 
       setState(() {
         _isRecording = false;
