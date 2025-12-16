@@ -100,17 +100,17 @@ class _TranscribedScreenState extends State<TranscribedScreen> {
                           Icon(
                             provider.isInitialized
                                 ? Icons.check_circle
-                                : Icons.error,
+                                : Icons.info_outline,
                             color: provider.isInitialized
                                 ? Colors.green
-                                : Colors.red,
+                                : Colors.blue,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             provider.isInitialized
                                 ? 'Speech Recognition Ready'
-                                : 'Not Initialized',
+                                : 'Will initialize when recording starts',
                             style: TextStyle(
                               color: Colors.grey[300],
                               fontSize: 14,

@@ -17,10 +17,6 @@ class TranscriptionProvider extends ChangeNotifier {
   String get errorMessage => _errorMessage;
   double get confidenceLevel => _confidenceLevel;
 
-  TranscriptionProvider() {
-    _initialize();
-  }
-
   Future<void> _initialize() async {
     try {
       // Request microphone permission
@@ -61,10 +57,13 @@ class TranscriptionProvider extends ChangeNotifier {
   }
 
   Future<void> startListening() async {
+    // Initialize if not already done
     if (!_isInitialized) {
-      _errorMessage = 'Speech recognition not initialized';
-      notifyListeners();
-      return;
+      await _initialize();
+      if (!_isInitialized) {
+        // Initialization failed, error message already set
+        return;
+      }
     }
 
     if (_isListening) {
